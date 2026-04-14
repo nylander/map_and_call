@@ -6,10 +6,10 @@ process callable_regions {
     //publishDir "${params.outdir}/03_sample_callability", mode: 'copy'
 
     input: 
-    tuple val(sample_id), val(min_dp), val(max_dp), val(sex_assignment), val(bedfile)
+    tuple val(sample_id), val(min_dp), val(max_dp), val(sex_assignment), path(bedfile)
     val sex_limitied_scaffolds
     val non_sex_limited_scaffolds
-    val faidx
+    path faidx
     
     output:
     tuple val(sample_id), path("${sample_id}.callable_regions.bed"), emit: callable
@@ -29,7 +29,7 @@ process callable_regions {
     for scaffold in $sex_limited_scaffolds_list; do
         start=0
         end=\$(awk -v scaffold="\$scaffold" '\$1 == scaffold {print \$2}' ${faidx})
-        echo -e "\${scaffold}\t\${start}\t\${end}"
+        echo -e "\${scaffold}\\t\${start}\\t\${end}"
         # remove this scaffold from the temporary bedfile
         cat tmp_${sample_id}_callable.bed | awk -v scaffold="\$scaffold" '\$1 != scaffold' > tmp_${sample_id}_callable.tmp.bed
         mv tmp_${sample_id}_callable.tmp.bed tmp_${sample_id}_callable.bed
@@ -38,22 +38,22 @@ process callable_regions {
     for scaffold in $non_sex_limited_scaffolds_list; do
         start=0
         end=\$(awk -v scaffold="\$scaffold" '\$1 == scaffold {print \$2}' ${faidx})
-        echo -e "\${scaffold}\t\${start}\t\${end}"
+        echo -e "\${scaffold}\\t\${start}\\t\${end}"
         # remove this scaffold from the temporary bedfile
         cat tmp_${sample_id}_callable.bed | awk -v scaffold="\$scaffold" '\$1 != scaffold' > tmp_${sample_id}_callable.tmp.bed
         mv tmp_${sample_id}_callable.tmp.bed tmp_${sample_id}_callable.bed
     done > non_sex_limited_scaffolds.bed
 
     # filter the temporary bedfile based on min and max depth
-    cat tmp_${sample_id}_callable.bed | awk -v min_dp="${min_dp}" -v max_dp="${max_dp}" -v OFS='\t' ' \$4 >= min_dp && \$4 <= max_dp {print \$1, \$2, \$3}' > tmp && mv tmp tmp_${sample_id}_callable.bed
+    cat tmp_${sample_id}_callable.bed | awk -v min_dp="${min_dp}" -v max_dp="${max_dp}" -v OFS='\\t' ' \$4 >= min_dp && \$4 <= max_dp {print \$1, \$2, \$3}' > tmp_${sample_id}_callable.filtered.bed && mv tmp_${sample_id}_callable.filtered.bed tmp_${sample_id}_callable.bed
 
     # if sex assignment is hemizygous, half the min and max dp for both the sex-limited and non-sex-limited scaffolds
     if [[ "${sex_assignment}" == "hemizygous" ]]; then
         # and filter both these files into the final callable bedfile
-        cat sex_limited_scaffolds.bed non_sex_limited_scaffolds.bed | awk -v min_dp=${min_dp_sexlinked} -v max_dp=${max_dp_sexlinked} -v OFS='\t' ' \$4 >= min_dp && \$4 <= max_dp {print \$1, \$2, \$3}' >> tmp_${sample_id}_callable.bed
+        cat sex_limited_scaffolds.bed non_sex_limited_scaffolds.bed | awk -v min_dp=${min_dp_sexlinked} -v max_dp=${max_dp_sexlinked} -v OFS='\\t' ' \$4 >= min_dp && \$4 <= max_dp {print \$1, \$2, \$3}' >> tmp_${sample_id}_callable.bed
     # otherwise if homozygous, keep same min and max dp and simply skip the sex-limited scaffolds (if any)
     else
-        cat non_sex_limited_scaffolds.bed | awk -v min_dp="${min_dp}" -v max_dp="${max_dp}" -v OFS='\t' ' \$4 >= min_dp && \$4 <= max_dp {print \$1, \$2, \$3}' >> tmp_${sample_id}_callable.bed
+        cat non_sex_limited_scaffolds.bed | awk -v min_dp="${min_dp}" -v max_dp="${max_dp}" -v OFS='\\t' ' \$4 >= min_dp && \$4 <= max_dp {print \$1, \$2, \$3}' >> tmp_${sample_id}_callable.bed
     fi
 
     # finally, mask out any regions that are in the reference mask bedfile
@@ -66,8 +66,11 @@ process callable_regions {
     fi
     bedtools subtract -a tmp_${sample_id}_callable.bed -b \${reference_mask} > tmp.${sample_id}.callable_regions.bed
 
-    # sort with faidx and merge overlapping/adjacent regions 
-    bedtools sort -faidx ${faidx} -i tmp.${sample_id}.callable_regions.bed | bedtools merge -i - > ${sample_id}.callable_regions.bed
+    # Sort and merge overlapping/adjacent regions
+    # First merge per-scaffold using GNU sort (disk-based) to avoid OOM with large files,
+    # then re-sort by faidx scaffold order on the much smaller merged output
+    sort -k1,1 -k2,2n tmp.${sample_id}.callable_regions.bed | bedtools merge -i - > tmp.${sample_id}.merged.bed
+    bedtools sort -faidx ${faidx} -i tmp.${sample_id}.merged.bed > ${sample_id}.callable_regions.bed
 
     """
 
