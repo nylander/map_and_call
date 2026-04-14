@@ -303,7 +303,7 @@ def setup_sex_chromosome_system() {
 /*
  * Prepare variant channel for merging: group by region, sort samples, add reference files
  */
-def prepare_merge_input(filtered_vcf_channel) {
+def prepare_merge_input(filtered_vcf_channel, reference_fasta, reference_fai, reference_gzi) {
     return filtered_vcf_channel
         .groupTuple(by: 0)
         .map {
@@ -314,11 +314,11 @@ def prepare_merge_input(filtered_vcf_channel) {
                 def (samples_sorted, vcfs_sorted, idxs_sorted) = zipped.transpose()
                 tuple(region_id, samples_sorted, vcfs_sorted, idxs_sorted)
         }
-        .combine(samtools_index.out.reference_fasta)
-        .combine(samtools_index.out.reference_fai)
-        .combine(samtools_index.out.reference_gzi)
-        .map { region_id, samples, vcfs, idxs, reference_fasta, reference_fai, reference_gzi ->
-            tuple(region_id, samples, vcfs, idxs, reference_fasta, reference_fai, reference_gzi)
+        .combine(reference_fasta)
+        .combine(reference_fai)
+        .combine(reference_gzi)
+        .map { rid, samples_s, vcfs_s, idxs_s, ref_fa, ref_fai, ref_gzi ->
+            tuple(rid, samples_s, vcfs_s, idxs_s, ref_fa, ref_fai, ref_gzi)
         }
 }
 
@@ -435,6 +435,7 @@ workflow {
     // Index reference genome and create intervals for parallel processing
     bwa_index_ch = bwa_index(ch_reference)
     faidx_and_chunks_ch = samtools_index(ch_reference)
+    reference_fasta = faidx_and_chunks_ch.reference_fasta.first()
     reference_fai = faidx_and_chunks_ch.reference_fai.first()
     reference_gzi = faidx_and_chunks_ch.reference_gzi.first()
    
@@ -1203,8 +1204,8 @@ workflow {
 
     // merge samples together
     // Prepare SNP and indel channels for merging with consistent format
-    snps_to_merge = prepare_merge_input(ab_dp_filter_snps.out.ab_dp_filtered_vcf)
-    indels_to_merge = prepare_merge_input(ab_dp_filter_indels.out.ab_dp_filtered_vcf)
+    snps_to_merge = prepare_merge_input(ab_dp_filter_snps.out.ab_dp_filtered_vcf, reference_fasta, reference_fai, reference_gzi)
+    indels_to_merge = prepare_merge_input(ab_dp_filter_indels.out.ab_dp_filtered_vcf, reference_fasta, reference_fai, reference_gzi)
     
     bcftools_merge_snps(snps_to_merge, 'snps')
     bcftools_merge_indels(indels_to_merge, 'indels')
