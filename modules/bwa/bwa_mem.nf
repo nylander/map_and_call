@@ -68,6 +68,7 @@ process bwa_mem {
 process bwa_mem_singlereads {
     tag "$sample_id"
     label 'process_wide'
+    conda "${moduleDir}/environment.yml"
 
     input:
     tuple val(sample_id), val(lane), path(reads)
