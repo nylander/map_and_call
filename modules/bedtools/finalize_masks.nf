@@ -18,8 +18,8 @@ process finalize_masks {
     def end = region.split(':')[1].split('-')[1]
     """
     # make dummy bedfile for filtering input bed
-    echo -e ${chrom}"\t"${start}"\t"${end} > ${sample_id}_${region_id}_regionstring.bed
-    bedtools intersect -a ${callable_bed} -b ${sample_id}_${region_id}_regionstring.bed > tmp && mv tmp ${sample_id}_${region_id}_callable.bed
+    echo -e "${chrom}\t${start}\t${end}" > ${sample_id}_${region_id}_regionstring.bed
+    bedtools intersect -a ${callable_bed} -b ${sample_id}_${region_id}_regionstring.bed > ${sample_id}_${region_id}_callable.bed.tmp && mv ${sample_id}_${region_id}_callable.bed.tmp ${sample_id}_${region_id}_callable.bed
 
     # now it's just a matter of subtracting some stuff from callable bed to get the different masks
     # homref invariants should only contain regions that are not represented in the vcf files, so subtract both the filtered snps and indels from the callable bed
