@@ -1,22 +1,25 @@
-# nf-varcall
-Nextflow pipeline for calling variants on population genomics datasets
+# map_and_varcall
 
+Mapping and variant calling pipeline developed to handle everything from raw fastq read input files, to filtered SNPs and indels ready for analysis. The pipeline is built using Nextflow and handles all dependencies internally using conda environments. It was designed specifically for smooth running on the Dardel (the compute cluster currently most frequenctly used at the Swedish Museum of Natural History), but should be easy enough to adapt to other environments.
 
-## Nextflow
+# Quick start on dardel
 
-Nextflow is installed as a module on dardel, and will by default be loaded inside the run_on_slurm.sh script.
+1. Clone the repository to a suitable place in your dardel project, and navigate to the directory:
 
-If not on dardel or just want your own installation, install nextflow as per instructions https://www.nextflow.io/docs/latest/install.html, and remove the ```module load Nextflow``` line from run_on_slurm.sh.
-    
-    
+    git clone XZY
+    cd map_and_call
 
-## Creating environment
+2. Prepare an input samplesheet with one row per sequence pair, and four columns:
+    datatype;sample_id;fastq1.fq.gz;fastq2.fq.gz,
+    where datatype is either 1 for modern sequencing data, or 2 for historical dna (expecting shorter reads and more damage). If one sample was sequenced more than once (several lanes or libraries), simply add multiple rows for the same sample_id, with the different fastq files, and the pipeline will handle merging per sample after mapping. An example of a samplesheet row:
+    1;Sample1;reads/Sample1_lane1_R1.fastq.gz;reads/Sample1_lane1_R2.fastq.gz
 
-All software dependencies of this pipeline have been packaged in a conda environment. To generate the conda environment and install all the necessary software, run:
+3. Edit the relevant parameters in the dardel_wrapper.sh slurm script:
+    - Project ID to use for submitting jobs to slurm
+    - Path to the reference genome (could be gzipped) to be used for mapping and variant calling
+    - Optionally give the output a more informative name than "output"
+    - (A bunch of more "advanced" parameters are customizable in the nextflow.config file)
 
-    conda env create -f environment.yml
+4. Submit the pipeline to slurm using the dardel_wrapper.sh script:
 
-    # once this is done, nextflow need the path to the conda environment at the top of the nextflow.config file, can be set with this command:
-
-    sed -i "s|CONDA_ENVIRONMENT_PATH|$(conda env list | awk ' $1 == "varcall_env" {print $2} ')|" nextflow.config
-
+    sbatch dardel_wrapper.sh
