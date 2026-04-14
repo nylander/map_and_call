@@ -1,11 +1,10 @@
 #!/usr/bin/env Rscript
 
 # Variant Statistics Report Generator
-# This script creates a comprehensive variant statistics report from TSV files
-# Usage: Rscript plot_variantstats.R <input_directory> [output_format]
-#   input_directory: Directory containing *_ab.tsv, *_dp.tsv, *_qual_fmiss_maf.tsv, 
-#                    *_record_counts.tsv, and *_sample_stats.tsv files
-#   output_format: "html" (default) or "pdf"
+# This script creates a comprehensive variant statistics PDF report from combine_stats TSV files
+# Usage: Rscript plot_variantstats.R <input_directory>
+#   input_directory: Directory containing *_ab_dp.tsv, *_qual_fmiss_maf_dp.tsv, 
+#                    *_record_counts.tsv, and *_sample_sumstats.tsv files (outputs from combine_stats.py)
 
 suppressPackageStartupMessages({
   library(tidyverse)
@@ -18,31 +17,22 @@ suppressPackageStartupMessages({
 args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) < 1) {
-  stop("Usage: Rscript plot_variantstats.R <input_directory> [output_format]\n  output_format: html (default) or pdf")
+  stop("Usage: Rscript plot_variantstats.R <input_directory>\n  Reads combine_stats.py output files and generates PDF report")
 }
 
 input_dir <- args[1]
-output_format <- ifelse(length(args) >= 2, tolower(args[2]), "html")
+output_format <- "pdf"  # Always output as PDF
 
 if (!dir.exists(input_dir)) {
   stop(paste("Input directory does not exist:", input_dir))
 }
 
-if (!output_format %in% c("html", "pdf")) {
-  stop("Output format must be 'html' or 'pdf'")
-}
-
-# Find input files
-ab_file <- list.files(input_dir, pattern = "_ab\\.tsv$", full.names = TRUE)
-dp_file <- list.files(input_dir, pattern = "_dp\\.tsv$", full.names = TRUE)
-qual_file_with_dp <- list.files(input_dir, pattern = "_qual_fmiss_maf_dp\\.tsv$", full.names = TRUE)
-qual_file <- list.files(input_dir, pattern = "_qual_fmiss_maf\\.tsv$", full.names = TRUE)
-# Prefer qual file with dp if available
-if (length(qual_file_with_dp) > 0) {
-  qual_file <- qual_file_with_dp
-}
+# Find input files from combine_stats.py output
+ab_file <- list.files(input_dir, pattern = "_ab_dp\\.tsv$", full.names = TRUE)
+dp_file <- list.files(input_dir, pattern = "_ab_dp\\.tsv$", full.names = TRUE)  # Use same file for DP if available
+qual_file <- list.files(input_dir, pattern = "_qual_fmiss_maf_dp\\.tsv$", full.names = TRUE)
 counts_file <- list.files(input_dir, pattern = "_record_counts\\.tsv$", full.names = TRUE)
-sample_file <- list.files(input_dir, pattern = "_sample_stats\\.tsv$", full.names = TRUE)
+sample_file <- list.files(input_dir, pattern = "_sample_sumstats\\.tsv$", full.names = TRUE)
 
 # Extract dataset name from directory or file names
 dir_basename <- basename(normalizePath(input_dir))

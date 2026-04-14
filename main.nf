@@ -113,6 +113,7 @@ include { vcf_stats as filtered_snp_stats } from './modules/variant_stats/vcf_st
 include { vcf_stats as filtered_indel_stats } from './modules/variant_stats/vcf_stats_process'
 include { combine_stats as combine_filtered_snps_stats } from './modules/variant_stats/combine_stats'
 include { combine_stats as combine_filtered_indels_stats } from './modules/variant_stats/combine_stats'
+include { plot_variant_stats } from './modules/variant_stats/plot_variant_stats'
 include { parse_summary_stats } from './modules/summary_stats/parse_summary_stats'
 include { combine_summary_tables } from './modules/summary_stats/combine_summary_files'
 
@@ -592,7 +593,7 @@ workflow {
     dedup_bam_ch = samtools_markdups(final_bam_ch.map { sample_id, bam, _datatype, reference -> tuple(sample_id, bam, reference) })
 
     // ═══════════════════════════════════════════════════════════════════════════════
-    //        8. ANCIENT DNA ANALYSIS: DAMAGE PROFILING & RESCALING
+    //        8. HISTORICAL DNA: DAMAGE PROFILING & RESCALING
     // ═══════════════════════════════════════════════════════════════════════════════
 
     // add datatype back to dedupped maps
@@ -745,21 +746,20 @@ workflow {
     // ═══════════════════════════════════════════════════════════════════════════════
 
     // Parse population assignments for joint genotyping (if provided)
-    // if a popfile was provided, get this info
- // Parse population file for joint calling if available
-    if (params.popfile) {
-        pops = channel.fromPath(params.popfile, checkIfExists: true)
-            .splitCsv(header: false, sep: ";")
-            .map { sample_id, population ->
-                tuple(sample_id, population)
-            }
-    }
-    else {
-        pops = sample_stats
-            .map { sample_id, _autosomal_dp, _non_sex_limited_dp, _sex_limited_dp, _ratio, _sex_assignment, _ds_autosomal_dp, _ds_non_sex_limited_dp, _ds_sex_limited_dp ->
-                tuple(sample_id, sample_id)
-            }
-    }
+    // if a popfile was provided, get this info, otherwise create a pops channel with each sample as its own population (i.e. independent calling)
+        if (params.popfile) {
+            pops = channel.fromPath(params.popfile, checkIfExists: true)
+                .splitCsv(header: false, sep: ";")
+                .map { sample_id, population ->
+                    tuple(sample_id, population)
+                }
+        }
+        else {
+            pops = sample_stats
+                .map { sample_id, _autosomal_dp, _non_sex_limited_dp, _sex_limited_dp, _ratio, _sex_assignment, _ds_autosomal_dp, _ds_non_sex_limited_dp, _ds_sex_limited_dp ->
+                    tuple(sample_id, sample_id)
+                }
+        }
 
     // if bcftools is our caller, we want to do separate callings per population
     if (params.popfile && params.variant_caller == 'bcftools') {
@@ -786,21 +786,21 @@ workflow {
             }
             .groupTuple(by: 0)
     }
-    // else if freebays is our caller, combine all bams into a single channel and send the pops along to freebayes later on
     
     
     // ═══════════════════════════════════════════════════════════════════════════════
-    //             12. VARIANT CALLING: MULTI-CALLER SUPPORT
+    //             12. VARIANT CALLING
     // 
-    // Supports four different variant calling approaches:
+    // Supports four two different variant calling approaches:
     //   - bcftools mpileup: Fast, lightweight variant discovery
     //   - freebayes: Joint calling across all samples
+    // Likely to be implemented soon:
     //   - gatk_haplotypecaller: Per-sample calling (commented out)
     //   - gatk_joint: Joint calling with GVCFs (commented out)
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    if ( !['gatk_joint','gatk_haplotypecaller','freebayes','bcftools'].contains(params.variant_caller) ) {
-        error "Unsupported variant caller specified: ${params.variant_caller}. Must be one of gatk_joint, gatk_haplotypecaller, freebayes or bcftools."
+    if ( !['freebayes','bcftools'].contains(params.variant_caller) ) {
+        error "Unsupported variant caller specified: ${params.variant_caller}. Must be one of freebayes or bcftools."
     }
 
     // ref bundle with all files potentially needed for variant calling
@@ -927,6 +927,9 @@ workflow {
         'raw_variants'
     )
 
+    // Generate variant statistics PDF report for raw variants
+    plot_variant_stats(combined_raw_stats.combined_summary_statistics.collect(), 'raw_variants')
+
     // If raw vcfs are to be stored, concatenate here
     if (params.store_raw_vcf == true) {
         sorted_raw_vcfs = raw_vcfs
@@ -941,200 +944,7 @@ workflow {
         bcftools_concat_raw(sorted_raw_vcfs, 'raw_variants')
     }
 
-    // // ========================================================================= \\
-    // // GATK HaplotypeCaller, per sample only 
-    // // ======================================================================== \\
-
-    // if (params.variant_caller == 'gatk_haplotypecaller') {
-    //     // First we need to make this sequence dictionary that gatk requires
-    //     seqdict = create_sequence_dict(ch_reference)
-    //     // and add this one to the variant_ch
-    //     variant_ch = variant_ch
-    //         .combine(seqdict.dict)
-    //         .map { sample_id, cram, crai, reference, index_files, chunk_id, interval, ref_dict ->
-    //             return tuple(sample_id, cram, crai, reference, index_files + [ref_dict], chunk_id, interval)
-    //         }
-    //     haplotype_caller(variant_ch)
-    //     sample_vcfs_ch = haplotype_caller.out.vcf
-    // }
     
-    // // ========================================================================= \\
-    // // GATK HaplotypeCaller in ERC mode + CombineGVCFs + GenotypeGVCFs for joint genotyping
-    // // ======================================================================== \\
-    // if (params.variant_caller == 'gatk_joint') {
-    //     // First we need to make this sequence dictionary that gatk requires
-    //     seqdict = create_sequence_dict(ch_reference)
-    //     // and add this one to the variant_ch
-    //     variant_ch = variant_ch
-    //         .combine(seqdict.dict)
-    //         .map { sample_id, cram, crai, reference, index_files, chunk_id, interval, ref_dict ->
-    //             return tuple(sample_id, cram, crai, reference, index_files + [ref_dict], chunk_id, interval)
-    //         }
-    //     haplotype_caller_erc(variant_ch)
-    //     sample_vcfs_ch = haplotype_caller_erc.out.vcf
-
-    //     // Extract a single GVCF and its index per sample.
-    //     // Note: `haplotype_caller_erc` emits a file bundle via `*.vcf.gz*` (vcf + index files),
-    //     // which would otherwise become nested lists after `groupTuple()`.
-    //     per_sample_gvcf_ch = sample_vcfs_ch
-    //         .map { row ->
-    //             def region_id = row[0]
-    //             def sample_id = row[1]
-    //             def bundle    = row[2]
-    //             def files     = (bundle instanceof List) ? bundle : [bundle]
-
-    //             def gvcf = files.find { it.getName().endsWith('.vcf.gz') }
-    //             def idx  = files.find { it.getName().endsWith('.tbi') } ?: files.find { it.getName().endsWith('.csi') }
-
-    //             if( !gvcf ) throw new IllegalStateException("Missing .vcf.gz in bundle for ${sample_id} region ${region_id}: ${files}")
-    //             if( !idx  ) throw new IllegalStateException("Missing index (.tbi/.csi) in bundle for ${sample_id} region ${region_id}: ${files}")
-
-    //             tuple(region_id, sample_id, gvcf, idx)
-    //         }
-
-    //     // Barrier: emits one item per region only when all upstream tasks are done (unless `size:` is set).
-    //     grouped_sample_vcfs_ch = per_sample_gvcf_ch
-    //         .groupTuple(by: 0)
-    //         .map { region_id, samples, gvcfs, idxs ->
-    //             def zipped = [samples, gvcfs, idxs].transpose()
-    //                 .sort { a, b -> a[0] <=> b[0] } // sort by sample_id
-    //             def (samples_sorted, gvcfs_sorted, idxs_sorted) = zipped.transpose()
-    //             tuple(region_id, samples_sorted, gvcfs_sorted, idxs_sorted)
-    //         }
-
-    //     // Attach the interval string for -L and then run CombineGVCFs.
-    //     combine_in_ch = grouped_sample_vcfs_ch
-    //         .join(refintervals_ch, by: 0)
-    //         .combine(ch_reference)
-    //         .combine(seqdict)
-    //         .combine(samtools_index.out.reference_fai)
-    //         .map { region_id, _samples, gvcfs, idxs, region, reference, seq_dict, ref_index ->
-    //             tuple(region_id, region, reference, gvcfs, idxs, ref_index, seq_dict)
-    //         }
-
-    //     // run through combinegvcfs
-    //     combined_ch = combine_gvcfs(combine_in_ch)
-    //     // and directly into genotype
-    //     combined_ch = combined_ch
-    //         .combine(ch_reference)
-    //         .combine(seqdict)
-    //         .combine(samtools_index.out.reference_fai)
-    //         .map { region_id, region, gvcf, gvcf_idx, reference, seq_dict, ref_index ->
-    //             tuple(region_id, region, reference, gvcf, gvcf_idx, seq_dict, ref_index)
-    //         }
-    //     region_vcf_ch = genotype_gvcfs(combined_ch)
-
-    // }
-
-    // // ========================================================================= \\
-    // // Freebayes
-    // // ========================================================================= \\
-    // if (params.variant_caller == 'freebayes') {
-    //     freebayes(variant_ch)
-    //     sample_vcfs_ch = freebayes.out.vcf
-    // }
-
-    // // Unless we're doing the gatk joint route, merge the per-sample vcf's into one per region here.
-    // // to have a consistent output for the filtering steps regardless of caller choice.
-
-    // if (params.variant_caller != 'gatk_joint') {
-    //     per_sample_vcf_ch = sample_vcfs_ch
-    //        .map { row ->
-    //        def region_id = row[0]
-    //        def sample_id = row[1]
-    //        // handle both the case where the vcf and index are emitted as a bundle (list) or separately
-    //        def rest  = (row.size() > 3) ? row[2..-1] : [ row[2] ]
-    //        def files = rest.flatten().findAll { it != null }
-    //        // now locate the vcf and index files within the emitted files
-    //        def vcf = files.find { it.getName().endsWith('.vcf.gz') }
-    //        def tbi = files.find { it.getName().endsWith('.tbi') } ?: null
-    //        def csi = files.find { it.getName().endsWith('.csi') } ?: null
-    //        // combine indices into a list
-    //        def indices = [tbi, csi].findAll { it != null }
-    //           tuple(region_id, sample_id, vcf, tbi, csi)
-    //        }
-        
-    //     // now combine them per region
-    //     // Now grouping produces 5-tuple: (region_id, [samples], [taxa], [vcfs], [idxs])
-    //     bcftools_merge_in_ch = per_sample_vcf_ch
-    //         .groupTuple(by: 0)
-    //         .map { region_id, samples, vcfs, tbi, csi ->
-    //             def zipped = [samples, vcfs, tbi, csi].transpose()
-    //                 .sort { a, b -> a[0] <=> b[0] }  // sort by sample_id
-    //             def (samples_sorted, vcfs_sorted, _tbi_sorted, csi_sorted) = zipped.transpose()
-    //             tuple(region_id, samples_sorted, vcfs_sorted, csi_sorted, "raw")
-    //         }
-
-    //     bcftools_merge_in_ch
-    //         .branch {
-    //             region_id, samples, vcfs, csi, category ->
-    //             multi:  samples.size() > 1
-    //             single: true
-    //         }
-    //         .set { raw_merge_branch }
-
-    //     single_raw_vcf_ch = raw_merge_branch.single
-    //         .map { region_id, samples, vcfs, csi, category ->
-    //             tuple(region_id, vcfs[0], csi[0])
-    //         }
-
-    //     region_vcf_ch = bcftools_merge(raw_merge_branch.multi).mix(single_raw_vcf_ch)
-    // }
-
-    // // run statistics on the raw vcfs for each region
-    // raw_stats_ch = region_vcf_ch.
-    //     map {
-    //         region_id, vcf, idx ->
-    //         tuple(region_id, vcf, idx, "raw")
-    //     }
-    // raw_stats = raw_vcf_stats(raw_stats_ch)
-    
-    // // Collect and combine all stat files for the combine_stats process
-    // raw_stats.ab_dp.collect().toList()
-    //     .combine(raw_stats.qual_fmiss_maf.collect().toList())
-    //     .combine(raw_stats.rec_counts.collect().toList())
-    //     .combine(raw_stats.sample_stats.collect().toList())
-    //     .map { ab_dp_files, gt_files, rec_files, sample_files -> 
-    //         return tuple(ab_dp_files, gt_files, sample_files, rec_files, "raw")
-    //     }
-    //     .set { combine_raw_stats_input }
-    
-    // raw_stats = combine_raw_vcf_stats(combine_raw_stats_input)
-    
-    // // if the raw vcf files are to be stored, concatenate now and output
-    // if (params.store_raw_vcf) {
-    //     // region_vcf_ch emits: (region_id, vcf, idx)
-    //     all_region_vcfs_sorted_ch = region_vcf_ch
-    //         .toSortedList { a, b -> a[0] <=> b[0] }   // sort by region_id
-    //         .map { rows ->
-    //             def vcfs = rows.collect { row -> row[1] }
-    //             def idxs = rows.collect { row -> row[2] }
-    //             tuple(vcfs, idxs, "raw")
-    //         }
-
-    //     // concatenate raw variants
-    //     bcftools_concat(all_region_vcfs_sorted_ch)
-    // }
-    // // generate bedfiles with homozygous reference for each region and sample
-    // invariants_in = sample_depth_cutoffs_autosomes
-    //     .flatMap()
-    //     .map { sample, mean_depth, min_depth, max_depth, category ->
-    //         tuple(sample, min_depth, max_depth)
-    //     }
-    //     .combine(region_vcf_ch)
-    //     .combine(sex_assignments, by: 0)
-    //     .map() { sample, min_depth, max_depth, region_id, vcf, idx, x_z_depth, y_w_depth, depth_ratio, sex ->
-    //             tuple(region_id, sample, min_depth, max_depth, vcf, idx, sex)
-    //      }
-    //      .combine(sex_linked_contigs.map { scaffold_list -> [scaffold_list]} )
-
-    
-    // homref = parse_invariants(invariants_in)
-    // homref_combine = homref
-    //     .groupTuple()
-    //     .combine(reference_fai)
-
-    // combine_homref(homref_combine)
     // // ========================================================================= \\
     // // ######################################################################### \\
     // //                              Filter genotypes
@@ -1236,6 +1046,10 @@ workflow {
         'filtered_indels'
     )
 
+    // Generate variant statistics PDF reports for filtered SNPs and indels
+    plot_variant_stats(combined_stats_snps.combined_summary_statistics.collect(), 'filtered_snps')
+    plot_variant_stats(combined_stats_indels.combined_summary_statistics.collect(), 'filtered_indels')
+
     // Helper function to sort VCF channel by region_id and extract sorted file lists
     // Sort SNP and indel VCFs by region for concatenation in consistent order
     sorted_snps = sort_and_extract_vcfs(bcftools_merge_snps.out.vcf)
@@ -1277,13 +1091,6 @@ workflow {
     // ######################################################################### \\
     //                             Generate sample output report                \\
     // ######################################################################### \\
-
-    // sample_stats.view {
-    //     row -> "sample stats: ${row}"
-    // }
-    // sample_depths.view {
-    //     row -> "sample depths: ${row}"
-    // }
 
     // If no downsampling was performed, just push NA values for these columns before sending it to the parse
      if (!params.downsample_bams) {

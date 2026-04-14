@@ -8,9 +8,9 @@ process finalize_masks {
     tuple val(sample_id), val(region_id), val(region), path(callable_bed), path(filtered_snps), path(filtered_indels)
     
     output:
-    tuple val(sample_id), path("${sample_id}_${region_id}.homref_invariants.bed"), emit: homref_invariants
-    tuple val(sample_id), path("${sample_id}_${region_id}.mappability_mask_total.bed"), emit: mappability_mask
-    tuple val(sample_id), path("${sample_id}_${region_id}.mappability_mask_snps.bed"), emit: mappability_mask_snps
+    tuple val(sample_id), path("${sample_id}_${region_id}.homref_invariants.bed.gz"), emit: homref_invariants
+    tuple val(sample_id), path("${sample_id}_${region_id}.mappability_mask_total.bed.gz"), emit: mappability_mask
+    tuple val(sample_id), path("${sample_id}_${region_id}.mappability_mask_snps.bed.gz"), emit: mappability_mask_snps
 
     script:
     def chrom = region.split(':')[0]
@@ -31,6 +31,11 @@ process finalize_masks {
 
     # mappability mask total should contain all regions with high enough mapping coverage to call variants, so just copy the callable bed and rename it
     cp ${sample_id}_${region_id}_callable.bed ${sample_id}_${region_id}.mappability_mask_total.bed
+
+    # gzip the output files
+    gzip ${sample_id}_${region_id}.homref_invariants.bed
+    gzip ${sample_id}_${region_id}.mappability_mask_total.bed
+    gzip ${sample_id}_${region_id}.mappability_mask_snps.bed
 
     """
 
