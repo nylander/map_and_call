@@ -301,6 +301,41 @@ def setup_sex_chromosome_system() {
 }
 
 /*
+ * Prepare variant channel for merging: group by region, sort samples, add reference files
+ */
+def prepare_merge_input(filtered_vcf_channel) {
+    return filtered_vcf_channel
+        .groupTuple(by: 0)
+        .map {
+            region_id, samples, vcfs, idxs ->
+                // Sort samples by ID to ensure consistent order for reproducible merging
+                def zipped = [samples, vcfs, idxs].transpose()
+                    .sort { a, b -> a[0] <=> b[0] }
+                def (samples_sorted, vcfs_sorted, idxs_sorted) = zipped.transpose()
+                tuple(region_id, samples_sorted, vcfs_sorted, idxs_sorted)
+        }
+        .combine(samtools_index.out.reference_fasta)
+        .combine(samtools_index.out.reference_fai)
+        .combine(samtools_index.out.reference_gzi)
+        .map { region_id, samples, vcfs, idxs, reference_fasta, reference_fai, reference_gzi ->
+            tuple(region_id, samples, vcfs, idxs, reference_fasta, reference_fai, reference_gzi)
+        }
+}
+
+/*
+ * Sort VCF channel by region_id and extract sorted file lists
+ */
+def sort_and_extract_vcfs(vcf_channel) {
+    return vcf_channel
+        .toSortedList { a, b -> a[0] <=> b[0] }  // Sort by region_id for deterministic output
+        .map { sorted_list ->
+            def vcfs = sorted_list.collect { it[1] }
+            def idxs = sorted_list.collect { it[2] }
+            tuple(vcfs, idxs)
+        }
+}
+
+/*
  * Main workflow
  */
 workflow {
@@ -457,15 +492,6 @@ workflow {
     // ═══════════════════════════════════════════════════════════════════════════════
     //                    6. MAPPING: HISTORICAL SAMPLES
     // ═══════════════════════════════════════════════════════════════════════════════
-
-    refintervals_ch = reference_intervals
-        .map { row -> row?.trim() }
-        .flatMap { row -> row ? row.split(/\r?\n/) as List : [] }
-        .filter { row -> row }
-        .collect()
-        .flatMap { intervals ->
-            intervals.withIndex().collect { interval, idx -> tuple(idx + 1, interval) }
-        }
 
     // Handle genomic intervals for variant calling
     refintervals_ch = reference_intervals
@@ -1176,26 +1202,6 @@ workflow {
     ab_dp_filter_indels(indels_filter_input, sex_limited_contigs, 'indels')
 
     // merge samples together
-    // Helper function to prepare variant channel for merging: group by region, sort samples, add reference files
-    def prepare_merge_input(filtered_vcf_channel) {
-        return filtered_vcf_channel
-            .groupTuple(by: 0)
-            .map {
-                region_id, samples, vcfs, idxs ->
-                    // Sort samples by ID to ensure consistent order for reproducible merging
-                    def zipped = [samples, vcfs, idxs].transpose()
-                        .sort { a, b -> a[0] <=> b[0] }
-                    def (samples_sorted, vcfs_sorted, idxs_sorted) = zipped.transpose()
-                    tuple(region_id, samples_sorted, vcfs_sorted, idxs_sorted)
-            }
-            .combine(samtools_index.out.reference_fasta)
-            .combine(samtools_index.out.reference_fai)
-            .combine(samtools_index.out.reference_gzi)
-            .map { region_id, samples, vcfs, idxs, reference_fasta, reference_fai, reference_gzi ->
-                tuple(region_id, samples, vcfs, idxs, reference_fasta, reference_fai, reference_gzi)
-            }
-    }
-
     // Prepare SNP and indel channels for merging with consistent format
     snps_to_merge = prepare_merge_input(ab_dp_filter_snps.out.ab_dp_filtered_vcf)
     indels_to_merge = prepare_merge_input(ab_dp_filter_indels.out.ab_dp_filtered_vcf)
@@ -1230,16 +1236,6 @@ workflow {
     )
 
     // Helper function to sort VCF channel by region_id and extract sorted file lists
-    def sort_and_extract_vcfs(vcf_channel) {
-        return vcf_channel
-            .toSortedList { a, b -> a[0] <=> b[0] }  // Sort by region_id for deterministic output
-            .map { sorted_list ->
-                def vcfs = sorted_list.collect { it[1] }
-                def idxs = sorted_list.collect { it[2] }
-                tuple(vcfs, idxs)
-            }
-    }
-
     // Sort SNP and indel VCFs by region for concatenation in consistent order
     sorted_snps = sort_and_extract_vcfs(bcftools_merge_snps.out.vcf)
     sorted_indels = sort_and_extract_vcfs(bcftools_merge_indels.out.vcf)
