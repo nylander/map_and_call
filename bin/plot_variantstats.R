@@ -21,18 +21,20 @@ if (length(args) < 1) {
 }
 
 input_dir <- args[1]
-output_format <- "pdf"  # Always output as PDF
+# Convert to absolute path
+input_dir <- normalizePath(input_dir, mustWork = TRUE)
+output_format <- "html"  # Always output as HTML for now
 
 if (!dir.exists(input_dir)) {
   stop(paste("Input directory does not exist:", input_dir))
 }
 
 # Find input files from combine_stats.py output
-ab_file <- list.files(input_dir, pattern = "_ab_dp\\.tsv$", full.names = TRUE)
-dp_file <- list.files(input_dir, pattern = "_ab_dp\\.tsv$", full.names = TRUE)  # Use same file for DP if available
+ab_file <- list.files(input_dir, pattern = "_ab\\.tsv$", full.names = TRUE)
+dp_file <- list.files(input_dir, pattern = "_dp\\.tsv$", full.names = TRUE)  # Use same file for DP if available
 qual_file <- list.files(input_dir, pattern = "_qual_fmiss_maf_dp\\.tsv$", full.names = TRUE)
 counts_file <- list.files(input_dir, pattern = "_record_counts\\.tsv$", full.names = TRUE)
-sample_file <- list.files(input_dir, pattern = "_sample_sumstats\\.tsv$", full.names = TRUE)
+sample_file <- list.files(input_dir, pattern = "_sample_stats\\.tsv$", full.names = TRUE)
 
 # Extract dataset name from directory or file names
 dir_basename <- basename(normalizePath(input_dir))
@@ -154,8 +156,10 @@ if (length(sample_file) > 0) {
   rmd_content <- paste0(rmd_content, sprintf('
 # Per-Sample Genotype Statistics
 
+```r
 ```{r load-samples}
-sample_stats <- read_tsv("%s", show_col_types = FALSE)
+sample_stats <- read_tsv("%s", show_col_types = FALSE) %%>%%
+  mutate(across(everything(), ~replace_na(., 0)))
 ```
 
 ## Genotype Distribution by Sample
@@ -163,7 +167,7 @@ sample_stats <- read_tsv("%s", show_col_types = FALSE)
 ```{r genotype-dist, fig.height=max(4, nrow(sample_stats) * 0.4)}
 sample_stats %%>%%
   pivot_longer(
-    cols = c(num_hom_ref, num_het, num_hom_alt, num_missing),
+    cols = all_of(c("num_hom_ref", "num_het", "num_hom_alt", "num_missing")),
     names_to = "genotype",
     values_to = "count"
   ) %%>%%
@@ -432,5 +436,3 @@ tryCatch({
   cat(sprintf("\n✗ Error generating report: %s\n", e$message))
   quit(status = 1)
 })
-
-```{r setup, include=FALSE}
