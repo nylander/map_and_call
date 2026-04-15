@@ -1199,7 +1199,6 @@ workflow {
 
     damage_profiles = damage_profiler.out.damage_reports
 
-
 }
 
 output {
@@ -1248,7 +1247,7 @@ output {
         path "00_reports/02_variantstats/01_filtered_snps"
     }
     filtered_snps_stats_plot {
-        path "00_reports/02_variantstats/01_filtered_snps"
+       path "00_reports/02_variantstats/01_filtered_snps"
     }
     filtered_indel_stats {
         path "00_reports/02_variantstats/02_filtered_indels"
