@@ -3,3 +3,4 @@ testfiles
 results
 freebayes/*
 work
+.envs
