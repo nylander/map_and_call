@@ -40,7 +40,7 @@ include { multiqc_cram as cram_multiqc } from './modules/multiqc/multiqc_cram'
 // ─────────────────────────────────────────────────────────────────────────────
 include { samtools_index } from './modules/samtools/index_reference'
 include { samtools_merge } from './modules/samtools/mergebams'
-include { samtools_merge as merge_historical_bams } from './modules/samtools/mergebams'
+include { merge_historical_bams } from './modules/samtools/mergebams'
 include { samtools_markdups } from './modules/samtools/samtools_markdups'
 include { samtools_stats } from './modules/samtools/samtools_stats'
 include { samtools_dp } from './modules/samtools/samtools_dp_process'
@@ -447,12 +447,14 @@ workflow {
     reference_fai = faidx_and_chunks_ch.reference_fai.first()
     reference_gzi = faidx_and_chunks_ch.reference_gzi.first()
    
+    println "Scaffold list provided by user: ${params.scaffold_list ?: 'None'}"
     
     // if user provides a list of scaffolds upon which to call variants, fetch this
     if (params.scaffold_list) {
         scaffolds_ch = channel.fromPath(params.scaffold_list, checkIfExists: true)
             .splitCsv(header: false)
             .map { row -> row[0] }
+            .collect()
     }
     else {
         // if no scaffold list is provided, we just use the reference fai index to get the scaffold names
@@ -512,30 +514,37 @@ workflow {
             intervals.withIndex().collect { interval, idx -> tuple(idx + 1, interval) }
         }
 
-    // Map paired-end reads from historical samples
-    map_historical_pairs_ch = adapterremoval.out.trimmed_reads
-        .map { sample_id, lane, r1, r2, _collapsed, _singletons -> tuple(sample_id, lane, r1, r2) }
-        .combine(bwa_index_ch.reference)
-    historical_pairbams_ch = map_historical(map_historical_pairs_ch )
+    // Map paired-end reads from historical samples (optional)
+    if (params.map_historical_pairs) {
+        map_historical_pairs_ch = adapterremoval.out.trimmed_reads
+            .map { sample_id, lane, r1, r2, _collapsed, _singletons -> tuple(sample_id, lane, r1, r2) }
+            .combine(bwa_index_ch.reference)
+        historical_pairbams_ch = map_historical(map_historical_pairs_ch )
+    }
+    else {
+        // Create an empty channel if paired mapping is disabled
+        historical_pairbams_ch = channel.empty()
+    }
     
     map_historical_collapsed_ch = adapterremoval.out.trimmed_reads
         .map { sample_id, lane, _r1, _r2, collapsed, _singletons -> tuple(sample_id, lane, collapsed) }
-
-    historical_collapsed_bams_ch = map_merged(map_historical_collapsed_ch, 'collapsed', bwa_index_ch.reference)
-
-    map_historical_singletions_ch = adapterremoval.out.trimmed_reads
-        .map { sample_id, lane, _r1, _r2, _collapsed, singletons -> tuple(sample_id, lane, singletons) }
         .combine(bwa_index_ch.reference)
+
+    historical_collapsed_bams_ch = map_merged(map_historical_collapsed_ch)
+
+    // map_historical_singletions_ch = adapterremoval.out.trimmed_reads
+    //     .map { sample_id, lane, _r1, _r2, _collapsed, singletons -> tuple(sample_id, lane, singletons) }
+    //     .combine(bwa_index_ch.reference)
     
-    historical_singleton_bams_ch = map_singletons(map_historical_singletions_ch, 'singletons', bwa_index_ch.reference)
+    // // historical_singleton_bams_ch = map_singletons(map_historical_singletions_ch)
 
     // collect historical bamfiles and merge
     historical_pairbams_ch
         .mix(historical_collapsed_bams_ch)
-        .mix(historical_singleton_bams_ch)
+        // .mix(historical_singleton_bams_ch)
         .groupTuple(by: [0,1])
-        .map { sample_id, _lane, bam_paths, _bam_indices ->
-            return tuple(sample_id, bam_paths)
+        .map { sample_id, lane, bam_paths, _bam_indices ->
+            return tuple(sample_id, lane, bam_paths)
         }
         .set {historical_bam_ch}
 
@@ -554,16 +563,18 @@ workflow {
         .groupTuple(by: [0,1])
 
     rawbam_ch
-        .groupTuple(by: [0])
-        .map { sample_id, _lanes, bam_paths, _bam_indices ->
-            return tuple(sample_id, bam_paths)
-        }
         .mix(historical_bams_merged_ch
           .groupTuple(by: [0])
         )
+        .groupTuple(by: [0])
+        .map { sample_id, _lanes, bam_paths, _bam_indices ->
+            return tuple(sample_id, bam_paths.flatten())
+        }
         // combine with input channel to add back the information on datatype
         .combine(datatypes_ch, by: 0)
         .set {rawbam_ch} 
+    
+    rawbam_ch.view()
 
     // pull out those with multiple bams
     rawbam_ch
@@ -598,8 +609,6 @@ workflow {
     qualimap_pre_dedup(final_bam_ch.map { sample_id, bam, _datatype, reference -> tuple(sample_id, bam, reference) })
     dedup_bam_ch = samtools_markdups(final_bam_ch.map { sample_id, bam, _datatype, reference -> tuple(sample_id, bam, reference) })
 
-    dedup_bam_ch.bam.view()
-
     // ═══════════════════════════════════════════════════════════════════════════════
     //        8. HISTORICAL DNA: DAMAGE PROFILING & RESCALING
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -625,7 +634,7 @@ workflow {
     // ═══════════════════════════════════════════════════════════════════════════════
     //              9. MAPPING QC: BAM QUALITY ASSESSMENT
     // ═══════════════════════════════════════════════════════════════════════════════
-    final_bam_ch.view()
+
     qualimap(final_bam_ch)
 
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -747,11 +756,11 @@ workflow {
 
     mappability_mask = callable_regions(depth_cutoffs, sex_limited_contigs, non_sex_limited_contigs, reference_fai)
 
-
-
     // ═══════════════════════════════════════════════════════════════════════════════
-    //           11. VARIANT CALLING: SAMPLE & POPULATION SETUP
+    //           11-12. VARIANT CALLING: SAMPLE & POPULATION SETUP & VARIANT CALLING
     // ═══════════════════════════════════════════════════════════════════════════════
+
+    if (!params.skip_variant_calling) {
 
     // Parse population assignments for joint genotyping (if provided)
     // if a popfile was provided, get this info, otherwise create a pops channel with each sample as its own population (i.e. independent calling)
@@ -825,7 +834,7 @@ workflow {
             def bwa_indices = row[3..-1]
             tuple(reference, [fai, gzi] + bwa_indices)
         }
-    bams_for_calling_ch.view()
+
     varcall_ch = 
         bams_for_calling_ch.combine(ref_bundle_ch)
         .combine(refintervals_ch)
@@ -1031,8 +1040,6 @@ workflow {
     // remove sites where all samples are filtered out, or if a user specified fraction of missing genotypes is given
     bcftools_fmiss_maf_filtered_snps = bcftools_filter_fmiss_maf_snps(bcftools_merge_snps.out.vcf, 'snps')
     bcftools_fmiss_maf_filtered_indels = bcftools_filter_fmiss_maf_indels(bcftools_merge_indels.out.vcf, 'indels')
-    
-    bcftools_fmiss_maf_filtered_snps.vcf.view()
 
     // stats
     filtered_snp_stats_out = filtered_snp_stats(bcftools_fmiss_maf_filtered_snps, 'snps')
@@ -1143,7 +1150,8 @@ workflow {
     combine_summary_tables(parse_summary_stats.out.summary_statistics.collect())
         
 
-    
+    } // End of variant calling section
+
 
     // ========================================================================= \\
     // ######################################################################### \\
@@ -1160,29 +1168,22 @@ workflow {
     // cram_multiqc_report = cram_multiqc.out.report
     qualimap_pre_dedup_reports = qualimap_pre_dedup.out.qualimap_report
     qualimap_reports = qualimap.out.qualimap_report
-    qualimap_downsampled_reports = qualimap_downsampled.out.qualimap_report
+    qualimap_downsampled_reports = params.downsample_bams ? qualimap_downsampled.out.qualimap_report : channel.empty()
 
     // Deduplicated CRAM files and duplicate-marking metrics
     raw_crams = final_bam_ch
     cram_metrics = samtools_markdups.out.metrics
 
-    downsampled_cram_files = bams_for_calling_ch
-
     // Reference genome
     reference_genome = bwa_index.out.reference
 
-    // downsampled bam files
-    downsampled_cram_files = samtools_downsample.out.downsampled_bam
-
-    // // Variant statistics (raw calls)
-    // raw_vcf_stats = combine_raw_vcf_stats.out.combined_summary_statistics
+    // downsampled bam files (or use non-downsampled if downsampling is disabled)
+    downsampled_cram_files = params.downsample_bams ? samtools_downsample.out.downsampled_bam : bams_for_calling_ch
 
     // // Raw concatenated VCF (only written when params.store_raw_vcf is true)
     raw_vcf = bcftools_concat_raw.out.vcf
     filtered_snps = bcftools_concat_snps.out.vcf
     filtered_indels = bcftools_concat_indels.out.vcf
-    // Raw coverage bed files (only for testing)
-    //coverage_beds = parse_region_depths.out.sample_depth_beds
 
     // callable regions
     callable_regions = total_mask.bedfile
@@ -1198,8 +1199,6 @@ workflow {
     filtered_snps_stats_plot = plot_snp_stats.out.report
     filtered_indel_stats = combined_stats_indels.combined_summary_statistics
     filtered_indel_stats_plot = plot_indel_stats.out.report
-
-
 
     summary_statistics = combine_summary_tables.out.table
 
@@ -1222,6 +1221,7 @@ output {
         path "00_reports/01_qualimap/01_qualimap_post_markdups"
     }
     qualimap_downsampled_reports {
+        enabled params.downsample_bams
         path "00_reports/01_qualimap/02_qualimap_downsampled"
     }
     reference_genome {
@@ -1231,6 +1231,7 @@ output {
         path "02_cramfiles"
     }
     downsampled_cram_files {
+        enabled params.downsample_bams
         path "02_cramfiles/downsampled"
     }
     cram_metrics {
@@ -1241,46 +1242,59 @@ output {
     // }
     raw_vcf {
         path "03_genotypes/00_raw_variants"
-        enabled params.store_raw_vcf
+        enabled params.store_raw_vcf && !params.skip_variant_calling
     }
     raw_variant_stats {
         path "00_reports/02_variantstats/00_raw_variants"
+        enabled !params.skip_variant_calling
     }
     raw_vcf_stats_plot {
         path "00_reports/02_variantstats/00_raw_variants"
+        enabled !params.skip_variant_calling
     }
     filtered_snps_stats {
         path "00_reports/02_variantstats/01_filtered_snps"
+        enabled !params.skip_variant_calling
     }
     filtered_snps_stats_plot {
        path "00_reports/02_variantstats/01_filtered_snps"
+        enabled !params.skip_variant_calling
     }
     filtered_indel_stats {
         path "00_reports/02_variantstats/02_filtered_indels"
+        enabled !params.skip_variant_calling
     }
     filtered_indel_stats_plot {
         path "00_reports/02_variantstats/02_filtered_indels"
+        enabled !params.skip_variant_calling
     }
     callable_regions {
         path "03_genotypes/02_maskfiles"
+        enabled !params.skip_variant_calling
     }
     snpable_regions {
         path "03_genotypes/02_maskfiles"
+        enabled !params.skip_variant_calling
     }
     invariant_calls {
         path "03_genotypes/02_maskfiles"
+        enabled !params.skip_variant_calling
     }
     filtered_snps {
         path "03_genotypes/01_filtered_variants"
+        enabled !params.skip_variant_calling
     }
     filtered_indels {
         path "03_genotypes/01_filtered_variants"
+        enabled !params.skip_variant_calling
     }
     summary_statistics {
         path "00_reports"
+        enabled !params.skip_variant_calling
     }
     damage_profiles {
         path "00_reports/03_damage_profiles"
+        enabled !params.skip_variant_calling
     }
 }
 
