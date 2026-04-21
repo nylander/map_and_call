@@ -13,10 +13,9 @@
 ml nextflow
 
 # nextflow run main.nf --input testfiles/input.csv -profile dardel -resume
-nextflow run main.nf --input ../mapping_testfiles/input.csv -profile dardel -resume \
-    --popfile ../mapping_testfiles/popfile.txt \
-    --reference ../mapping_testfiles/reference/GCF_003339765.1_Mmul_10_NC_041770.1.fna \
+nextflow run main.nf --input ../mapping_testfiles/input_2.csv -profile dardel -resume \
+    --reference ../mapping_testfiles/reference/GCF_003339765.1_Mmul_10_4chroms.fa \
     --reads_dir ../mapping_testfiles/reads \
-    --name ../map_and_call_test/freebayes_test \
     --scaffold_list ../mapping_testfiles/scaffolds.txt \
+    --name ../map_and_call_test/test_2 \
     --slurm_account naiss2025-22-471
