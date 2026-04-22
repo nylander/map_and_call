@@ -22,6 +22,7 @@ process adapterremoval {
         --output2 ${sample_id}_${lane}_trimmed_R2.fastq.gz \
         --outputcollapsed ${sample_id}_${lane}_collapsed.fastq.gz \
         --singleton ${sample_id}_${lane}_singletons.fastq.gz \
+        --minlength ${params.min_readlength} \
         --gzip
 
 
