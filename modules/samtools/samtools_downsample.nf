@@ -11,17 +11,17 @@ process samtools_downsample {
     tuple val(sample), path(bam), path(bamindex), val(fraction)
     
     output:
-    tuple val(sample), path("${sample}_downsampled.cram"), path("${sample}_downsampled.cram.crai"), emit: downsampled_bam
+    tuple val(sample), path("${sample}_downsampled.bam"), path("${sample}_downsampled.bam.bai"), emit: downsampled_bam
 
     script:
     """
-    samtools view -s ${fraction} -C -o ${sample}_downsampled.cram ${bam}
-    samtools index ${sample}_downsampled.cram
+    samtools view -s ${fraction} -o ${sample}_downsampled.bam ${bam}
+    samtools index ${sample}_downsampled.bam
     """
 
     stub:
     """
-    touch ${sample}_downsampled.cram
-    touch ${sample}_downsampled.cram.crai
+    touch ${sample}_downsampled.bam
+    touch ${sample}_downsampled.bam.bai
     """
 }
