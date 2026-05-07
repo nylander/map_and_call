@@ -23,3 +23,34 @@ Mapping and variant calling pipeline developed to handle everything from raw fas
 4. Submit the pipeline to slurm using the dardel_wrapper.sh script:
 
     sbatch dardel_wrapper.sh
+
+
+# Output
+
+    .
+    ├── 00_input_data
+    │   └── 00_reference_genome
+    ├── 01_reports
+    │   ├── 00_fastqc
+    │   ├── 01_qualimap
+    │   ├── 02_variantstats
+    │   └── 03_damage_profiles
+    ├── 02_bamfiles
+    │   └── dedup_metrics
+    ├── 03_genotypes
+    │   ├── 00_raw_variants
+    │   ├── 01_filtered_variants
+    │   └── 02_maskfiles
+    └── pipeline_info
+
+## 02_maskfiles
+
+Contains three bedfiles per sample:
+- <sample_id>_mappability_mask.bed
+Callability mask across the genome, that is, this file contains genomic regions where we're confident in our ability to call genotypes
+- <sample_id>_homref_invariants.bed
+This file contains all intervals in the reference genomes with sufficient read coverage for variant calling, but where no variants were called. That is, one can assume that these sites are homozygous reference for the particular sample.
+- <sample_id>_snp_mask.bed
+Callability mask for SNPs: that is, this file contains genomic regions where we're confident in our ability to call SNPs if present. Any sites with indels will be excluded in this file.
+
+
