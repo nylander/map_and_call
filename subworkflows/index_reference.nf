@@ -13,6 +13,25 @@ include { bwa_index } from '../modules/bwa/bwa_index'
 include { samtools_index } from '../modules/samtools/index_reference'
 include { dochunks } from '../modules/reference_intervals/dochunks'
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/*
+ * Check if BWA index files already exist for a reference genome
+ */
+def check_bwa_index_exists(reference_file) {
+    def base = reference_file.toString()
+    def required_extensions = ['.amb', '.ann', '.bwt', '.pac', '.sa']
+    def all_exist = required_extensions.every { ext -> 
+        file("${base}${ext}").exists() 
+    }
+    if (all_exist) {
+        println "INFO: BWA index files found for ${reference_file.name}, skipping indexing"
+    }
+    return all_exist
+}
+
 workflow INDEX_REFERENCE {
     take:
     ch_reference           // path: reference FASTA file
@@ -25,10 +44,52 @@ workflow INDEX_REFERENCE {
     
     main:
     // ─────────────────────────────────────────────────────────────────────────────
-    // Index reference genome with BWA and samtools
+    // Check if BWA index files already exist and branch accordingly
     // ─────────────────────────────────────────────────────────────────────────────
-    bwa_index_ch = bwa_index(ch_reference)
-    faidx_and_chunks_ch = samtools_index(ch_reference)
+    
+    // Duplicate the reference channel using multiMap
+    ch_ref_split = ch_reference
+        .multiMap { ref ->
+            for_bwa: ref
+            for_samtools: ref
+        }
+    
+    // Branch references based on whether BWA index exists
+    ref_branches = ch_ref_split.for_bwa
+        .map { ref ->
+            def is_indexed = check_bwa_index_exists(ref)
+            tuple(ref, is_indexed)
+        }
+        .branch {
+            indexed: it[1] == true
+            needs_indexing: it[1] == false
+        }
+    
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Index reference genome with BWA (only if needed)
+    // ─────────────────────────────────────────────────────────────────────────────
+    // For already indexed references, create a channel matching bwa_index output format
+    already_indexed = ref_branches.indexed
+        .map { ref, is_indexed ->
+            def index_files = [
+                file("${ref}.amb"),
+                file("${ref}.ann"),
+                file("${ref}.bwt"),
+                file("${ref}.pac"),
+                file("${ref}.sa")
+            ]
+            tuple(ref, index_files)
+        }
+    
+    // Run BWA index only on references that need it
+    needs_indexing_refs = ref_branches.needs_indexing.map { ref, is_indexed -> ref }
+    newly_indexed = bwa_index(needs_indexing_refs)
+    
+    // Combine both channels - one or the other will be empty
+    bwa_index_ch = already_indexed.mix(newly_indexed.reference)
+    
+    // Index with samtools
+    faidx_and_chunks_ch = samtools_index(ch_ref_split.for_samtools)
     
     reference_fasta = faidx_and_chunks_ch.reference_fasta.first()
     reference_fai = faidx_and_chunks_ch.reference_fai.first()
@@ -88,7 +149,7 @@ workflow INDEX_REFERENCE {
         }
 
     emit:
-    bwa_index          = bwa_index_ch.reference
+    bwa_index          = bwa_index_ch
     reference_fasta    = reference_fasta
     reference_fai      = reference_fai
     reference_gzi      = reference_gzi

@@ -86,7 +86,6 @@ workflow VARIANT_CALLING {
         .map { bams, bais, region_id, regions, ref_genome, ref_indices ->
             tuple(bams, bais, ref_genome, ref_indices, region_id, regions)
         }
-        .view { it -> println "Variant calling input before combining reference bundle: ${it}" }
 
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -99,7 +98,6 @@ workflow VARIANT_CALLING {
         .collect().toList()
     varcall_ch = varcall_ch
         .combine(popstring)
-        //.view { it -> println "Variant calling input: ${it}" }
 
     if (variant_caller == 'bcftools') {
         mpileup(varcall_ch)
@@ -109,50 +107,6 @@ workflow VARIANT_CALLING {
         freebayes(varcall_ch)
         raw_vcfs = freebayes.out.vcf
     }
-
-//     // ─────────────────────────────────────────────────────────────────────────────
-//     // Merge VCFs across populations if multiple populations exist
-//     // ─────────────────────────────────────────────────────────────────────────────
-//     npops = bams_for_calling_grouped.groupTuple(by: 0)
-//         .map { population, _crams, _crais -> population }
-//         .collect()
-//         .map { populations -> populations.size() }
-//         .branch { n ->
-//              multiple_pops: n > 1
-//              single_pop: n <= 1
-//         }
-
-//     multipop_merge_in = npops.multiple_pops.combine(pop_vcfs_ch.groupTuple(by: 0)
-//             // Make sure that populations are always sorted in a consistent order
-//             .map { region_id, populations, vcfs, idxs ->
-//                 def zipped = [populations, vcfs, idxs].transpose()
-//                     .sort { a, b -> a[0] <=> b[0] } // sort by population name
-//                 def (populations_sorted, vcfs_sorted, idxs_sorted) = zipped.transpose()
-//                 tuple(region_id, populations_sorted, vcfs_sorted, idxs_sorted)
-//             }
-//             .map { region_id, pop_list, vcf_list, idx_list ->
-//                 tuple(region_id, pop_list, vcf_list, idx_list)
-//             }
-//         )
-//         .map { _npops, region_id, pop_list, vcf_list, idx_list ->
-//             tuple(region_id, pop_list, vcf_list, idx_list)
-//         }
-//         // Broadcast singleton reference files across all regions
-//         .combine(reference_fai)
-//         .combine(reference_gzi)
-//         .combine(ch_reference)
-//         .map { region_id, pop_list, vcf_list, idx_list, ref_fai, ref_gzi, ref_fa ->
-//             tuple(region_id, pop_list, vcf_list, idx_list, ref_fa, ref_fai, ref_gzi)
-//         }
-
-// //    multipop_vcf = bcftools_merge(multipop_merge_in, 'raw')
-
-//     singlepop_vcf = pop_vcfs_ch.combine(npops.single_pop)
-//         .map { region_id, _pop, vcf, idx, _npops ->
-//             tuple(region_id, vcf, idx)
-//         }
-
-//     raw_vcfs = singlepop_vcf
 
     // ─────────────────────────────────────────────────────────────────────────────
     // Extract summary statistics from raw VCF files

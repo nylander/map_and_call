@@ -330,6 +330,7 @@ workflow PROCESS_BAMS {
     downsampled_crams = (params.downsample_bams && params.store_crams) ? downsampled_crams.cram : channel.empty()
     sample_depths = sample_depths
     sample_depths_downsampled = downsample_bams ? sample_depths_downsampled : channel.empty()
+    mapping_depths = parse_region_depths.out.sample_depth_avg
     depth_cutoffs = depth_cutoffs
     callable_regions = mappability_mask.callable
     qualimap_reports = qualimap.out.qualimap_report
