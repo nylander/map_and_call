@@ -9,3 +9,4 @@ work
 .vscode
 *.html
 test
+execution_trace*.txt
