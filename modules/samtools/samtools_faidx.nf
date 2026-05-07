@@ -1,6 +1,6 @@
 process samtools_faidx {
     tag "$reference"
-    label 'process_low'
+    label 'thin_short'
     conda "${moduleDir}/environment.yml"
 
     //publishDir "${params.outdir}/reference", mode: 'copy'

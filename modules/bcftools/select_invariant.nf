@@ -1,6 +1,6 @@
 process select_invariant {
     tag "select_invariant"
-    label 'process_wide'
+    label 'thin_short'
     conda "${moduleDir}/environment.yml"
 
     // publishDir "${params.outdir}/invariant_vcf_files", mode: 'copy'

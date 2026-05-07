@@ -1,6 +1,6 @@
 process combine_summary_tables {
     tag "combine_summary_tables"
-    label 'process_small'
+    label 'thin_short'
     // conda "${moduleDir}/environment.yml"
 
     input:

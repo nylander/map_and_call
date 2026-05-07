@@ -1,6 +1,6 @@
 process bcftools_filter_indels {
     tag "filter_indels"    
-    label 'process_wide'
+    label 'thin_medium'
     conda "${moduleDir}/environment.yml"
 
 

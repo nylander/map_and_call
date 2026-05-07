@@ -1,6 +1,6 @@
 process multiqc_cram {
     tag "cram_multiqc"
-    label 'process_low'
+    label 'thin_short'
     conda "${moduleDir}/environment.yml"
 
     // publishDir "${params.outdir}/02_cramfiles", mode: 'copy'

@@ -4,7 +4,6 @@
 
 process fastp {
     tag "$sample_id"
-    label 'process_wide'
     conda "${moduleDir}/environment.yml"
 
     input:

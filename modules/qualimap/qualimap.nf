@@ -2,7 +2,7 @@
 
 process qualimap {
     tag "$sample_id"
-    label 'process_wide'
+    label 'medium_medium'
     conda "${moduleDir}/environment.yml"
 
     input:

@@ -1,7 +1,6 @@
 // Merge bam alignments generated from different sequencing runs/lanes for the same sample
 process samtools_merge {
     tag "$sample_id"
-    label 'process_wide'
     conda "${moduleDir}/environment.yml"
 
     input:
@@ -28,7 +27,6 @@ process samtools_merge {
 
 process merge_historical_bams {
     tag "$sample_id"
-    label 'process_wide'
     conda "${moduleDir}/environment.yml"
 
     input:

@@ -2,7 +2,6 @@
 
 process damage_profiler_rescale {
     tag "$sample_id"
-    label 'process_wide'
     conda "${moduleDir}/environment.yml"
 
     input:

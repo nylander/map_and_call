@@ -1,5 +1,6 @@
 process plot_variant_stats {
     tag "plot_variant_stats_${category}"
+    label 'thin_short'
     conda "${moduleDir}/environment.yml"
 
     input:

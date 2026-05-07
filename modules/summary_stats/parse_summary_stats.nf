@@ -1,6 +1,6 @@
 process parse_summary_stats {
     tag "parse_summary_stats"
-    label 'process_small'
+    label 'thin_short'
     // conda "${moduleDir}/environment.yml"
 
 

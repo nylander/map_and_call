@@ -2,7 +2,7 @@
 
 process dochunks {
     tag "refintervals"
-    label 'process_low'
+    label 'thin_short'
     conda "${moduleDir}/environment.yml"
 
     // publishDir "${params.outdir}/01_reference_genome", mode: 'copy'

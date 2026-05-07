@@ -1,5 +1,6 @@
 process vcf_stats {
     tag "vcf_stats"
+    label 'medium_medium'
     conda "${moduleDir}/environment.yml"
 
     input:

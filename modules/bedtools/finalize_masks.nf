@@ -1,6 +1,6 @@
 process finalize_masks {
     tag "finalize_masks"
-    label 'process_wide'
+    label 'medium_short'
     conda "${moduleDir}/environment.yml"
 
 

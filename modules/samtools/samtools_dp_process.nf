@@ -1,6 +1,5 @@
 process samtools_dp {
     tag "samtools_dp"
-    label 'process_wide'
     conda "${moduleDir}/environment.yml"
 
     input:
@@ -16,7 +15,7 @@ process samtools_dp {
     def region_length = end.toInteger() - start.toInteger() + 1
     
     """
-    samtools depth -r ${region} -Q 30 -q 20 -a ${cram} | \
+    samtools depth -r ${region} -Q ${params.min_mapqual} -q ${params.min_basequal} -a ${cram} | \
             awk -v OFS='\t' ' {print \$1 OFS \$2 - 1 OFS \$2 OFS \$3} ' | \
             bedtools groupby -i - -g 1,4 -c 2,3 -o min,max | \
             awk -v OFS='\t' ' { print \$1 OFS \$3 OFS \$4 OFS \$2} ' > ${region_id}_${sample_id}.depths.bed

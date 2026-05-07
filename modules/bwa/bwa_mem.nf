@@ -4,7 +4,6 @@
 
 process bwa_mem {
     tag "$sample_id"
-    label 'process_wide'
     conda "${moduleDir}/environment.yml"
 
     input:
@@ -40,7 +39,7 @@ process bwa_mem {
 
     FLOWCELL=\$(echo \$HEADER | cut -d':' -f3)
     LANE=\$(echo \$HEADER | cut -d':' -f4)
-    RGID="\${FLOWCELL}.\${LANE}"
+    RGID="${sample_id}_\${FLOWCELL}.\${LANE}"
     PU="\${FLOWCELL}.\${LANE}"
     SAMPLE="${sample_id}"
 
@@ -52,7 +51,7 @@ process bwa_mem {
          ${reference} \
          ${read1} \
          ${read2} \
-     | samtools view -@ ${task.cpus} -q ${params.min_mapq} -b -o - - | \
+     | samtools view -@ ${task.cpus} -q ${params.min_mapqual} -b -o - - | \
      samtools sort -@ ${task.cpus} -o ${sample_id}_${library}.sorted.bam -
 
     samtools index ${sample_id}_${library}.sorted.bam
@@ -68,7 +67,6 @@ process bwa_mem {
 
 process bwa_mem_singlereads {
     tag "$sample_id"
-    label 'process_wide'
     conda "${moduleDir}/environment.yml"
 
     input:
@@ -114,7 +112,7 @@ process bwa_mem_singlereads {
          -R "\${rg}" \
          ${reference} \
          ${reads} \
-     | samtools view -@ ${task.cpus} -q ${params.min_mapq} -b -o - - | \
+     | samtools view -@ ${task.cpus} -q ${params.min_mapqual} -b -o - - | \
      samtools sort -@ ${task.cpus} -o ${sample_id}_${library}_MR.sorted.bam -
 
     samtools index ${sample_id}_${library}_MR.sorted.bam

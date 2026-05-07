@@ -2,7 +2,7 @@
 
 process samtools_downsample {
     tag "samtools_downsample_${sample}"
-    label 'process_wide'
+    label 'medium_medium'
     conda "${moduleDir}/environment.yml"
 
     //publishDir "${params.outdir}/reference", mode: 'copy'

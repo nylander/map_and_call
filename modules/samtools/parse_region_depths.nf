@@ -1,6 +1,6 @@
 process parse_region_depths {
     tag "parse_depths"
-    label 'process_small'
+    label 'thin_short'
     conda "${moduleDir}/environment.yml"
 
     input:

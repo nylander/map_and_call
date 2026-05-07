@@ -1,6 +1,6 @@
 process ab_filter {
     tag "ab_filter"
-    label 'process_small'
+    label 'thin_medium'
     conda "${moduleDir}/environment.yml"
 
     //publishDir "${params.outdir}/ab_filtered_vcf_files", mode: 'copy'

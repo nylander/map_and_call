@@ -1,5 +1,5 @@
 process multiqc_fastqc {
-    label 'process_low'
+    label 'thin_short'
     conda "${moduleDir}/environment.yml"
 
     // publishDir "${params.outdir}/00_reports/00_fastqc_${stage}", mode: 'copy'

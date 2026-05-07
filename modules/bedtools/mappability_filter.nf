@@ -1,6 +1,6 @@
 process mappability_filter {
     tag "mappability_filter"
-    label 'process_small'
+    label 'medium_medium'
     conda "${moduleDir}/environment.yml"
 
     //publishDir "${params.outdir}/mappability_filtered_vcf_files", mode: 'copy'

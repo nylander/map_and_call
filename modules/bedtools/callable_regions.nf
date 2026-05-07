@@ -1,15 +1,12 @@
 process callable_regions {
     tag "callable_regions"
-    label 'process_wide'
+    label 'medium_short'
     conda "${moduleDir}/environment.yml"
 
     //publishDir "${params.outdir}/03_sample_callability", mode: 'copy'
 
     input: 
-    tuple val(sample_id), val(min_dp), val(max_dp), val(sex_assignment), path(bedfile)
-    val sex_limited_scaffolds
-    val non_sex_limited_scaffolds
-    path faidx
+    tuple val(sample_id), val(min_dp), val(max_dp), val(sex_assignment), path(bedfile), val(sex_limited_scaffolds), val(non_sex_limited_scaffolds), path(faidx)
     
     output:
     tuple val(sample_id), path("${sample_id}.callable_regions.bed"), emit: callable

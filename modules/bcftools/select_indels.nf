@@ -1,6 +1,6 @@
 process select_indels {
     tag "select_indels"
-    label 'process_wide'
+    label 'thin_short'
     conda "${moduleDir}/environment.yml"
 
     input:

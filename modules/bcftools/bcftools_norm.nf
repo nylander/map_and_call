@@ -1,7 +1,6 @@
 
 process bcftools_norm {
     tag "normalize_vcfs"
-    label 'process_wide'
     conda "${moduleDir}/environment.yml"
 
     input:

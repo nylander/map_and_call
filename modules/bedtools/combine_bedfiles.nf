@@ -1,6 +1,6 @@
 process combine_bedfiles {
     tag "combine_bedfiles"
-    label 'process_small'
+    label 'medium_short'
     conda "${moduleDir}/environment.yml"
 
     //publishDir "${params.outdir}/03_genotypes", mode: 'copy'

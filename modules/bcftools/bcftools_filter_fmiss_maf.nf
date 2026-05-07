@@ -1,6 +1,6 @@
 process bcftools_filter_fmiss_maf {
     tag "fmiss_maf_filter"
-    label 'process_wide'
+    label 'thin_medium'
     conda "${moduleDir}/environment.yml"
 
     input:
@@ -11,7 +11,7 @@ process bcftools_filter_fmiss_maf {
     tuple val(region_id), path("region-${region_id}.${category}.filtered.vcf.gz"), path("region-${region_id}.${category}.filtered.vcf.gz.*"), emit: vcf
 
     script:
-    def filter_expression = "F_MISSING >= ${params.fmiss_threshold} || MAF <= ${params.maf_threshold}"
+    def filter_expression = "F_MISSING > ${params.fmiss_threshold} || MAF < ${params.maf_threshold}"
     // if min and max global dp are set in the params, add them to the filter expression
     if (params.min_global_dp != null) {
         filter_expression += " || DP < ${params.min_global_dp}"
@@ -22,7 +22,9 @@ process bcftools_filter_fmiss_maf {
     """
     # add MAF and F_MISSING annotations to the vcf
     bcftools +fill-tags ${vcf} -Oz -- -t F_MISSING,MAF | \
-        bcftools view -e "${filter_expression}" -Oz -o region-${region_id}.${category}.filtered.vcf.gz -
+        bcftools view -e "${filter_expression}" -Oz - | \
+        # remove the GL field
+        bcftools annotate -x 'FORMAT/GL' -Oz -o region-${region_id}.${category}.filtered.vcf.gz -
     bcftools index region-${region_id}.${category}.filtered.vcf.gz
 
     """

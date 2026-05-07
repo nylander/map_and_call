@@ -2,7 +2,7 @@
 
 process cramqc {
     tag "$sample_id"
-    label 'process_low'
+    label 'medium_medium'
     conda "${moduleDir}/environment.yml"
 
     

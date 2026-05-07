@@ -2,6 +2,7 @@
 
 process concat_reads {
     tag "$sample_id"
+    label 'thin_short'
 
     input:
     tuple val(sample_id), val(library), val(datatype), path(forward_reads), path(reverse_reads)
@@ -24,6 +25,7 @@ process concat_reads {
 
 process concat_collapsed {
     tag "$sample_id"
+    label 'thin_short'
 
     input:
     tuple val(sample_id), val(library), val(datatype), path(collapsed_reads)

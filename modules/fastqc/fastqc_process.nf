@@ -4,7 +4,7 @@
 
 process fastqc {
     tag "$sample_id"
-    label 'process_wide'
+    label 'medium_short'
     conda "${moduleDir}/environment.yml"
 
     input:

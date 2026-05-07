@@ -1,5 +1,6 @@
 process combine_stats {
     tag "combine_stats"
+    label 'thin_short'
     conda "${moduleDir}/environment.yml"
 
     // publishDir "${params.outdir}/04_variant_stats", mode: 'copy'

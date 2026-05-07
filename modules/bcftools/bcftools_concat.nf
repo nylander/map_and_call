@@ -1,7 +1,7 @@
 
 process bcftools_concat {
     tag "concat_vcfs"
-    label 'process_wide'
+    label 'thin_medium'
     conda "${moduleDir}/environment.yml"
 
     //publishDir "${params.outdir}/03_genotypes", mode: 'copy'

@@ -1,6 +1,6 @@
 process bcftools_filter {
     tag "filter_vcf"
-    label 'process_wide'
+    label 'thin_medium'
     conda "${moduleDir}/environment.yml"
 
     input:

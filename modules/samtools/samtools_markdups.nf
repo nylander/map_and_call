@@ -1,6 +1,5 @@
 process samtools_markdups {
     tag "$sample_id"
-    label 'process_wide'
     conda "${moduleDir}/environment.yml"
 
     // publishDir "${params.outdir}/02_cramfiles", mode: 'copy'

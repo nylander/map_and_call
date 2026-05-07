@@ -4,7 +4,6 @@
 
 process bwa_index {
     tag "$reference"
-    label 'process_medium'
     conda "${moduleDir}/environment.yml"
 
     //publishDir "${params.outdir}/01_reference_genome", mode: 'copy'

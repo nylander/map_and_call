@@ -1,6 +1,6 @@
 process select_snps {
     tag "select_snps"
-    label 'process_wide'
+    label 'thin_short'
     conda "${moduleDir}/environment.yml"
 
     input:
