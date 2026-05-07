@@ -445,7 +445,7 @@ workflow {
     // Raw CRAM files and deduplicated metrics
     bamfiles = PROCESS_BAMS.out.raw_bams
     bam_metrics = PROCESS_BAMS.out.cram_metrics
-
+    mapping_depths = PROCESS_BAMS.out.mapping_depths
     cramfiles = params.store_crams ? PROCESS_BAMS.out.raw_crams : channel.empty()
     downsampled_cramfiles = (params.downsample_bams && params.store_crams) ? PROCESS_BAMS.out.downsampled_crams : channel.empty()
 
@@ -516,6 +516,9 @@ output {
     downsampled_bamfiles {
         enabled params.downsample_bams && !params.store_crams
         path "02_bamfiles/downsampled"
+    }
+    mapping_depths {
+        path "02_bamfiles/mapping_depths"
     }
     bam_metrics {
         enabled params.postmapping_dedup
