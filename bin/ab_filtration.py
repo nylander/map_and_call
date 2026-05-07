@@ -28,15 +28,18 @@ for record in vcf_in:
     # Calculate allele balance for each sample
     for sample in record.samples:
         gt = record.samples[sample]['GT']
-        if gt[0] == gt[1]: # Check for homozygous genotype
-            continue  # Skip if homozygous
         if None in gt:
             continue  # Skip if genotype is missing
-        ad = record.samples[sample]['AD']  # Allele depth
+        if gt[0] == gt[1]: # Check for homozygous genotype
+            continue  # Skip if homozygous
+        ad = [i for i in record.samples[sample]['AD'] if i is not None] # Allele depth for the sample, filtering out None values
         if ad is not None and sum(ad) > 0:  # Avoid division by zero
             ab = min(ad) / sum(ad)  # Calculate allele balance
             if ab < args.min_ab:  # Filter based on allele balance threshold
                 # set genotype to missing if allele balance is below threshold
                 record.samples[sample]['GT'] = (None, None)
+        else:
+            # If AD is missing or sum is zero, set genotype to missing
+            record.samples[sample]['GT'] = (None, None)
     # Write the (potentially modified) record to the output VCF
     vcf_out.write(record)
