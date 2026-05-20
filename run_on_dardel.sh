@@ -3,7 +3,7 @@
 #SBATCH -A <NAISS_COMPUTE_PROJECT>
 #SBATCH -p shared
 #SBATCH -c 4
-#SBATCH -t 0-05:00:00
+#SBATCH -t 5-00:00:00
 #SBATCH -J map-and-call
 #SBATCH --mail-type=FAIL
 #SBATCH -o ./logs/%x-%j.out
