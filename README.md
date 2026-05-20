@@ -7,12 +7,12 @@ Mapping and variant calling pipeline developed to handle everything from raw fas
 1. Clone the repository to a suitable place in your dardel project, and navigate to the directory:
 
     ```
-    git clone XZY
+    git clone https://github.com/axeljen/map_and_call.git
     # navigate to the directory
     cd map_and_call
     ```
     
-2. Prepare an input samplesheet with one row per sequence pair, and five columns, like so:
+2. Prepare an input samplesheet with one row per sequence pair, and five columns with headers, like so:
     
         sample_id;library;datatype;read_1;read_2
         sample_1;lib1;1;sample_1_R1.fq.gz;sample_1_R2.fq.gz
