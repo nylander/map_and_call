@@ -1,6 +1,6 @@
 #!/bin/bash -l
 
-#SBATCH -A naiss2026-4-730
+#SBATCH -A <NAISS_COMPUTE_PROJECT>
 #SBATCH -p shared
 #SBATCH -c 4
 #SBATCH -t 0-05:00:00
@@ -13,21 +13,21 @@
 ml PDC/24.11 nextflow miniconda3
 
 # path to input file with sample and read information, see readme for details
-INPUT_CSV=../mapping_testfiles/input_2.csv
+INPUT_CSV=/path/to/input.csv
 # path to reference genome
-REFERENCE=../mapping_testfiles/reference/GCF_003339765.1_Mmul_10_4chroms.fa
+REFERENCE=/path/to/reference_genome.fa
 # path to reads directory. this argument can be omitted if full paths to reads are provided in the input csv (if so, remove the --reads_dir argument from the command below)
-READS_DIR=../mapping_testfiles/reads
+READS_DIR=/path/to/reads
 # Optionally provide a list of scaffols upon which to perform variant calling. If not provided, also remove the arguemnt from the command, and the pipeline will be run for the entire genome
-SCAFFOLD_LIST=../mapping_testfiles/scaffolds.txt
+SCAFFOLD_LIST=/path/to/scaffolds.txt
 # variant caller to use, either freebayes or bcftools
 VARIANT_CALLER=freebayes
 # chunk size in megabases for parallelizing variant calling. If many samples are included, this could be increased a bit to avoid too many jobs getting stuck in the queue perhaps.
 CHUNK_SIZE=20
 # output directory 
-OUTDIR=freebayes_testrun
+OUTDIR=path/to/output_directory
 # account to use for slurm job submission
-SLURM_ACCOUNT=naiss2026-4-730
+SLURM_ACCOUNT=<NAISS_COMPUTE_PROJECT>
 
 
 # run the full pipeline
