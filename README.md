@@ -16,7 +16,7 @@ Mapping and variant calling pipeline developed to handle everything from raw fas
     
         sample_id;library;datatype;read_1;read_2
         sample_1;lib1;1;sample_1_R1.fq.gz;sample_1_R2.fq.gz
-        sample_2;lib2;2;sample_2_R1.fq.gz;sample_2_R2.fq.gz
+        sample_2;lib1;2;sample_2_R1.fq.gz;sample_2_R2.fq.gz
 
 
     #### Where:  
