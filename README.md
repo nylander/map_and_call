@@ -12,14 +12,23 @@ Mapping and variant calling pipeline developed to handle everything from raw fas
     cd map_and_call
     ```
     
-2. Prepare an input samplesheet with one row per sequence pair, and up to five columns:
-    sample_id;library;datatype;fastq1.fq.gz;fastq2.fq.gz,
-    where datatype is either 1 for modern sequencing data, or 2 for historical dna (expecting shorter reads and more damage). If one sample was sequenced more than once (several lanes or libraries), simply add multiple rows for the same sample_id, with the different fastq files, and the pipeline will handle merging per sample after mapping. An example of a samplesheet row:
-    Sample1;lib1;1;reads/Sample1_lane1_R1.fastq.gz;reads/Sample1_lane1_R2.fastq.gz
+2. Prepare an input samplesheet with one row per sequence pair, and five columns, like so:
+    
+        sample_id;library;datatype;read_1;read_2
+        sample_1;lib1;1;sample_1_R1.fq.gz;sample_1_R2.fq.gz
+        sample_2;lib2;2;sample_2_R1.fq.gz;sample_2_R2.fq.gz
 
-    (library and datatype columns are optional, will default to a unique library per sample row and datatype 1, respectively, if not omitted).
 
-    Paths to input reads may either be absolute path, or – preferable – just the basenames of the reads together with the --reads_dir argument when running the pipeline (keeps the samplesheet cleaner). If using --reads_dir, make sure that all reads are accessible in the same directory, for example by symlinking all reads to a common directory:
+    #### Where:  
+    **sample_id** is a unique identifier for each sample.   
+
+    **library** is used to differentiate between different libraries sequenced from the same sample. These well be merged prior to deduplication. If the same library was sequenced across different lanes, simply add one row per read pair with the same library name, and the pipeline will handle merging per library after mapping.  
+    
+    **datatype** is either 1 for modern sequencing data, or 2 for historical dna (expecting shorter reads and more damage).  
+    
+    **read_1/read_2** points to the paths for the fastq files for this sequencing run. Either specify the full path to the reads, or - to keep the input file a bit cleaner - put all reads (or links to them) in a common directory, and point to this directory with the --reads_dir argument when running the pipeline. For example:
+
+    Symlink all reads to a common directory:
 
         mkdir reads
         for read in $(find /dir/with/raw_data -name "*.fq.gz");
@@ -28,18 +37,18 @@ Mapping and variant calling pipeline developed to handle everything from raw fas
         done
 
 
-3. Edit the relevant parameters in the dardel_wrapper.sh slurm script:
-    - Project ID to use for submitting jobs to slurm
-    - Path to the reference genome (plain or gzipped) to be used for mapping and variant calling
-    - Path to where to store the results
-    - (A bunch of more "advanced" parameters are customizable in the nextflow.config file)
+    And use the basedir of the reads when running the pipeline, with --reads_dir reads
 
-4. Submit the pipeline to slurm using the dardel_wrapper.sh script:
+3. Edit the relevant variables in the run_on_dardel.sh slurm script.
 
-    sbatch dardel_wrapper.sh
+4. Submit the pipeline to slurm using the run_on_dardel.sh script.
+
+        sbatch run_on_dardel.sh
 
 
 # Output
+
+If all goes well, the output directory should look something like:
 
     .
     ├── 00_input_data
@@ -57,7 +66,27 @@ Mapping and variant calling pipeline developed to handle everything from raw fas
     │   └── 02_maskfiles
     └── pipeline_info
 
-## 02_maskfiles
+## 00_input_data
+Contains the index reference genome
+
+## 01_reports
+Contains a number different QC reports for reads, mapped bamfiles and variants
+
+## 02_bamfiles
+Contains the final, mapped and processed bam/cram files for each sample, as well as a deduplication metrics file for each sample.
+
+
+## 03_genotypes
+
+### 00_raw_variants
+
+Contains the raw variants in vcf format.
+
+### 01_filtered_variants
+
+Filtered SNPs and indels in vcf format, ready for downstream analyses. 
+
+### 02_maskfiles
 
 Contains three bedfiles per sample:
 - <sample_id>_mappability_mask.bed
