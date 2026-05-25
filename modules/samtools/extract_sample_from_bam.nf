@@ -4,15 +4,15 @@ process extract_sample_from_bam {
     conda "${moduleDir}/environment.yml"
 
     input:
-    path bam
+    tuple path(bam), path(bai)
 
     output:
-    stdout emit: sample_id
+    tuple path(bam), path(bai), path("${bam.baseName}.sample_id.txt"), emit: sample_bams
 
     script:
     """
     # Extract sample ID from BAM read group (SM tag)
-    samtools view -H ${bam} | grep '^@RG' | head -n 1 | sed 's/.*SM:\\([^\\t]*\\).*/\\1/' | tr -d '\\n'
+    samtools view -H ${bam} | grep '^@RG' | head -n 1 | sed 's/.*SM:\\([^\\t]*\\).*/\\1/' | tr -d '\\n' > ${bam.baseName}.sample_id.txt
     """
 
     stub:
