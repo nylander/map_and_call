@@ -12,3 +12,4 @@ test
 execution_trace*.txt
 output
 freebayes_testrun
+testrun_on_dardel.sh
