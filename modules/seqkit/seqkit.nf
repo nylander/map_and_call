@@ -18,9 +18,9 @@ process split_fq_by_length {
     def minlen_longreads = params.short_reads_threshold + 1
     """
     # extract short reads
-    seqkit -M ${params.short_reads_threshold} -o ${sample_id}_${library}_shortreads.fq.gz ${reads}
+    seqkit seq -M ${params.short_reads_threshold} -o ${sample_id}_${library}_shortreads.fq.gz ${reads}
     # extract long reads
-    seqkit -m ${minlen_longreads} -o ${sample_id}_${library}_longreads.fq.gz ${reads}
+    seqkit seq -m ${minlen_longreads} -o ${sample_id}_${library}_longreads.fq.gz ${reads}
 
     """
 

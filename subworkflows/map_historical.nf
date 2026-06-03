@@ -10,9 +10,10 @@
 // Module imports
 // ─────────────────────────────────────────────────────────────────────────────
 include { bwa_mem as map_historical } from '../modules/bwa/bwa_mem'
+include { bwa_mem_singlereads as map_long_historical } from '../modules/bwa/bwa_mem'
 include { bwa_mem_singlereads as map_merged } from '../modules/bwa/bwa_mem'
 include { merge_historical_bams } from '../modules/samtools/mergebams'
-include { merge_historical_bams as merge_short_and_long_read_bams } from '../modules/samtools/mergebams'
+include { merge_aln_mem as merge_short_and_long_read_bams } from '../modules/samtools/mergebams'
 include { split_fq_by_length } from '../modules/seqkit/seqkit'
 include { bwa_aln } from '../modules/bwa/bwa_aln'
 
@@ -55,7 +56,7 @@ workflow MAP_HISTORICAL {
             .combine(bwa_index)
             )
         // longreads with mem
-        map_historical(split_fq_by_length.out.longreads
+        map_long_historical(split_fq_by_length.out.longreads
             .combine(bwa_index)
             )
         // merge the resulting bams
@@ -63,8 +64,9 @@ workflow MAP_HISTORICAL {
             bwa_aln.out.bam
                 .mix(map_historical.out.bam)
                 .groupTuple(by: [0,1,2])
+                .view()
                 .map { sample_id, library, datatype, bam_paths, _bam_indices ->
-                    return tuple(sample_id, library, datatype, bam_paths)
+                    return tuple(sample_id, library, datatype, bam_paths, "combined")
                 }
         )
     }

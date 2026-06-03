@@ -11,7 +11,7 @@ process bwa_aln {
     
 
     output:
-    tuple val(sample_id), val(library), val(datatype), path("${sample_id}_${library}_bwa-aln.sorted.bam"), path("${sample_id}_${library}.sorted.bam.bai"), emit: bam
+    tuple val(sample_id), val(library), val(datatype), path("${sample_id}_${library}_bwa-aln.sorted.bam"), path("${sample_id}_${library}_bwa-aln.sorted.bam.bai"), emit: bam
 
     script:
     """
@@ -55,8 +55,8 @@ process bwa_aln {
 
     stub:
     """
-    touch ${sample_id}_${library}.sorted.bam
-    touch ${sample_id}_${library}.sorted.bam.bai
+    touch ${sample_id}_${library}_bwa-aln.sorted.bam
+    touch ${sample_id}_${library}_bwa-aln.sorted.bam.bai
     """
 }
 

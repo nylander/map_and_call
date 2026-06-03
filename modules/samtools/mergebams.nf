@@ -24,7 +24,6 @@ process samtools_merge {
 }
 
 // Merge bam alignments generated from different sequencing runs/lanes for the same sample
-
 process merge_historical_bams {
     tag "$sample_id"
     conda "${moduleDir}/environment.yml"
@@ -46,5 +45,29 @@ process merge_historical_bams {
     """
     touch ${sample_id}_${library}.bam
     touch ${sample_id}_${library}.bam.bai
+    """
+}
+
+process merge_aln_mem {
+    tag "$sample_id"
+    conda "${moduleDir}/environment.yml"
+
+    input:
+    tuple val(sample_id), val(library), val(datatype), path(bam_files)
+
+    output:
+    tuple val(sample_id), val(library), val(datatype), path("${sample_id}_${library}_merged.bam"), path("${sample_id}_${library}_merged.bam.bai"), emit: merged_bam
+
+    script:
+    """
+    samtools merge -@ ${task.cpus} ${sample_id}_${library}_merged.bam ${bam_files.join(' ')}
+    samtools index ${sample_id}_${library}_merged.bam
+    # echo "Simulated merged BAM content for sample ${sample_id}" > ${sample_id}_${library}_merged.bam
+    """
+
+    stub:
+    """
+    touch ${sample_id}_${library}_merged.bam
+    touch ${sample_id}_${library}_merged.bam.bai
     """
 }
