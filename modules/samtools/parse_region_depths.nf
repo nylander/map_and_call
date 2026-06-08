@@ -5,7 +5,7 @@ process parse_region_depths {
 
     input:
     tuple val(sample_id), path(bedfiles)
-    path faidx
+    each path(faidx)
 
     output:
     tuple val(sample_id), path("${sample_id}.depths.bed"), emit: sample_depth_beds
