@@ -7,8 +7,9 @@ process combine_bedfiles {
     
     input:
     tuple val(sample_id), path(bedfiles)
-    path reference_fai
-    val name
+    each path(reference_fai)
+    each val(name)
+    
     output:
     tuple val(sample_id), path("${sample_id}_${name}.bed"), emit: bedfile
     tuple val(sample_id), path("total_sites.txt"), emit: total_sites
