@@ -48,13 +48,15 @@ def parse_bamfile_list(bamfile_list) {
         .map { bam_path ->
             def bam = file(bam_path, checkIfExists: true)
             // Try common BAI naming patterns
-            def bai_candidates = [
-                file("${bam_path}.bai"),
-                file("${bam_path.replaceAll(/\.bam$/, '.bai')}")
-            ]
-            def bai = bai_candidates.find { it.exists() }
+            def index_candidates = [
+            file("${bam_path}.bai"),
+            file("${bam_path}.crai"),
+            file(bam_path.replaceAll(/\.bam$/, '.bai')),
+            file(bam_path.replaceAll(/\.cram$/, '.crai'))
+                ].unique()
+            def bai = index_candidates.find { bai -> bai.exists() }
             if (!bai) {
-                error "BAI index file not found for ${bam_path}. Tried: ${bai_candidates.collect{it.toString()}.join(', ')}"
+                error "BAI index file not found for ${bam_path}. Tried: ${index_candidates.collect{it.toString()}.join(', ')}"
             }
             return tuple(bam, bai)
         }
