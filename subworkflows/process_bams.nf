@@ -128,9 +128,7 @@ workflow PROCESS_BAMS {
 
     merged_bams = samtools_merge(per_sample_bams.multi
         .map { sample_id, datatype, bam_paths, _bam_indices -> tuple(sample_id, datatype, bam_paths) })
-    merged_bams.view {
-        row -> "merged bams: ${row}"
-    }
+
     all_sample_bams = merged_bams
         .mix(per_sample_bams.single.map { sample_id, datatype, bam_paths, bam_indices ->
             tuple(sample_id, datatype, bam_paths[0], bam_indices[0])
@@ -202,6 +200,11 @@ workflow PROCESS_BAMS {
 
     region_depths = samtools_dp(dp_input_ch)
         .groupTuple(by: 0)
+
+    region_depths.view {
+        row -> "region depths: ${row}"
+    }
+
 
     sample_depths = calculate_depth_and_sex(
         parse_region_depths(region_depths, reference_fai).sample_depth_avg,
@@ -324,6 +327,9 @@ workflow PROCESS_BAMS {
         .combine(reference_fai)
 
     mappability_mask = callable_regions(callable_regions_input)
+    parse_region_depths.out.sample_depth_avg.view {
+        row -> "mapping depths: ${row}"
+    }
 
     emit:
     final_bam = bams_for_calling_ch
