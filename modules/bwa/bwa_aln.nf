@@ -42,7 +42,8 @@ process bwa_aln {
     RGID="${sample_id}_${library}"
     PU="illumina"
     SAMPLE="${sample_id}"
-
+    PLATFORM="ILLUMINA"
+    
     rg="@RG\\tID:\${RGID}\\tSM:\${SAMPLE}\\tLB:\${SAMPLE}\\tPL:\${PLATFORM}\\tPU:\${PU}"
 
     bwa aln -t ${task.cpus} ${params.bwa_aln_flags} ${reference} ${reads} > ${sample_id}_${library}_aln.sai
