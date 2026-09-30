@@ -9,9 +9,9 @@
 #SBATCH -o ./logs/%x-%j.out
 #SBATCH -e ./logs/%x-%j.error
 
-# Load modules for nextflow and conda/mamba. Module names as per 2026-06-17.
+# Load modules for nextflow. Module names as per 2026-06-17.
 module load buildtool-easybuild/5.2.1-hpca3ef7d197
-module load Miniforge3/26.3.2-2
+#module load Miniforge3/26.3.2-2
 module load Nextflow/25.10.6-eb
 module load Java/25.0.3-bdist
 
@@ -54,6 +54,7 @@ OUTDIR='/path/to/output_directory'
 nextflow run main.nf \
     -profile 'arrhenius' \
     -resume \
+    --with_singularity \
     --use_mamba \
     --input "$INPUT_CSV" \
     --reference "$REFERENCE" \
@@ -79,7 +80,13 @@ nextflow run main.nf \
 # the pipeline several times, you can save some time and space by setting this
 # to a dedicated location that you can then reuse for subseqeunt runs in
 # different directories. Then, the environments doesn't need to be recreated.
-# See also the NXF_CONDA_CACHEDIR variable above.
+# Examples:
+# Create these folders is in your project directory and execute befor running
+# the nextflow command:
+#   export NXF_CONDA_CACHEDIR="/path/to/NXF_CONDA_CACHEDIR"
+#   export CONDA_PKGS_DIRS="/path/to/CONDA_PKGS_DIRS"
+#   export CONDA_ENVS_PATH="/path/to/CONDA_ENVS_PATH"
+#   mkdir -p "$NXF_CONDA_CACHEDIR" "$CONDA_PKGS_DIRS" "$CONDA_ENVS_PATH"
 
 ## -work-dir
 # To save disk-file quota, one may try to write the work directory to a
